@@ -1,0 +1,6 @@
+github.com/srfrog/slices v1.0.1 h1:AfFmBRaTFK3YmIArR4q/cwhKI2seK+bbjJr/X+4mhmw=
+github.com/srfrog/slices v1.0.1/go.mod h1:5OuxzTo5jO70/qZx6BVixf9u7VKO86tAKVkQEi+zz4Q=
+github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
+github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
+github.com/valyala/fasttemplate v1.2.2 h1:lxLXG0uE3Qnshl9QyaK6XJxMXlQZELvChBOCmQD0Loo=
+github.com/valyala/fasttemplate v1.2.2/go.mod h1:KHLXt3tVN2HBp8eijSv/kGJopbvo7S+qRAEEKiv+SiQ=

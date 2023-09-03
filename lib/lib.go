@@ -62,10 +62,10 @@ var jsonTemplate = `
 }
 `
 
-// Config returns a json string with configuration for Caddy.
+// Config returns a json string with conf for Caddy.
 //
 //   - serverKey - usually "myserver"
-//   - routeId - unique ID within caddy configuration, ex. one of the domain names
+//   - routeId - unique ID within caddy conf, ex. one of the domain names
 //   - appHost / appPort - application host and port to proxy this route to
 //   - matchHosts - list of matching hosts.
 //   - matchPath - usually "/*"
@@ -105,7 +105,7 @@ func SetLogger(l *slog.Logger) {
 	logger = l
 }
 
-// Fn returns a function that executes configuration against caddy's loadURL (usually "http://localhost:2019/load").
+// Fn returns a function that executes conf against caddy's loadURL (usually "http://localhost:2019/load").
 //
 // Most likely this function will have to be called at least once, and then repeatedly using Periodically so that Caddy will
 // have a chance to pick up in case it (re)starts later.

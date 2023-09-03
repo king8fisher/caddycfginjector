@@ -1,8 +1,6 @@
 package db
 
 import (
-	"encoding/json"
-	"fmt"
 	pb "github.com/king8fisher/caddycfginjector/proto/caddycfginjector"
 	"strconv"
 	"sync"
@@ -16,8 +14,37 @@ func Test(t *testing.T) {
 	a.Equal(*caddyConf, CaddyConf{})
 	a.Equal(true, IsConfEmpty(), "initially empty")
 
-	t.Run("patchRoute", testPatchRoute)
-	t.Run("patchRoute racing", testAddRouteRace)
+	t.Run("testPatchRoute", testPatchRoute)
+	t.Run("testResetConf", testResetConf)
+	t.Run("testAddRouteRace", testAddRouteRace)
+	t.Run("testNotEmpty", testNotEmpty)
+	t.Run("testResetConf_again", testResetConf)
+	t.Run("testEmpty", testEmpty)
+}
+
+func TestInitialCaddyConfig(t *testing.T) {
+	a := assert.New(t)
+	c := InitialCaddyConfig()
+	a.NotEmpty(c.Apps.Http.Servers.Myserver.Listen)
+	a.Equal([]string{":443"}, c.Apps.Http.Servers.Myserver.Listen)
+}
+
+func testResetConf(t *testing.T) {
+	a := assert.New(t)
+	resetConfToEmpty()
+	a.Equal(*caddyConf, CaddyConf{}, "back to reset configuration")
+}
+
+func testNotEmpty(t *testing.T) {
+	a := assert.New(t)
+	a.NotEqual(*caddyConf, CaddyConf{}, "configuration shouldn't be empty")
+	//r, _ := json.MarshalIndent(caddyConf, "", "  ")
+	//fmt.Println(string(r))
+}
+
+func testEmpty(t *testing.T) {
+	a := assert.New(t)
+	a.Equal(*caddyConf, CaddyConf{}, "configuration shouldn't be empty")
 }
 
 func testPatchRoute(t *testing.T) {
@@ -30,8 +57,7 @@ func testPatchRoute(t *testing.T) {
 	}
 	patchRoute(route0)
 	a.Equal(*caddyConf, CaddyConf{}, "adding to empty conf produces empty conf")
-	err := resetConfToMinimumNonEmptyConf()
-	a.Nil(err, "resetConfToMinimumNonEmptyConf() shouldn't result in error")
+	resetConfToMinimumNonEmptyConf()
 	a.NotEqual(*caddyConf, CaddyConf{}, "resetConfToMinimumNonEmptyConf() shouldn't result in an empty config")
 	a.Equal(false, IsConfEmpty())
 	patchRoute(route0)
@@ -58,7 +84,7 @@ func testPatchRoute(t *testing.T) {
 
 func testAddRouteRace(t *testing.T) {
 	a := assert.New(t)
-	a.Nil(resetConfToMinimumNonEmptyConf(), "should reset without error")
+	resetConfToMinimumNonEmptyConf()
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -73,6 +99,6 @@ func testAddRouteRace(t *testing.T) {
 	}
 	wg.Wait()
 	a.Equal(10, len(*caddyConf.Apps.Http.Servers.Myserver.Routes), "should fill every distinct route id")
-	r, _ := json.MarshalIndent(caddyConf, "", "  ")
-	fmt.Println(string(r))
+	//r, _ := json.MarshalIndent(caddyConf, "", "  ")
+	//fmt.Println(string(r))
 }

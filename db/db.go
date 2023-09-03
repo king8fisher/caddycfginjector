@@ -13,6 +13,27 @@ import (
 var caddyConf = &CaddyConf{}
 var caddyConfMutex sync.Mutex
 
+func ReadCaddyConf() string {
+	caddyConfMutex.Lock()
+	defer caddyConfMutex.Unlock()
+	b, _ := json.Marshal(caddyConf)
+	return string(b)
+}
+
+func SetCaddyConf(conf []byte) {
+	caddyConfMutex.Lock()
+	defer caddyConfMutex.Unlock()
+	var c CaddyConf
+	err := json.Unmarshal(conf, &c)
+	if err != nil {
+		slog.Warn("unable to fit conf into internal json", "err", err, "conf", conf)
+	} else {
+		caddyConf = &c
+		m, _ := json.Marshal(c)
+		slog.Info("internal conf changed", "conf", m)
+	}
+}
+
 type CaddyConf struct {
 	Apps struct {
 		Http struct {
@@ -35,10 +56,15 @@ func resetConfToEmpty() {
 	caddyConf = &CaddyConf{}
 }
 
-func resetConfToMinimumNonEmptyConf() error {
+func resetConfToMinimumNonEmptyConf() {
 	caddyConfMutex.Lock()
 	defer caddyConfMutex.Unlock()
-	v := `
+	c := InitialCaddyConfig()
+	caddyConf = &c
+}
+
+func InitialCaddyConfigSrc() string {
+	return `
 {
   "apps": {
     "http": {
@@ -55,7 +81,14 @@ func resetConfToMinimumNonEmptyConf() error {
   }
 }
 `
-	return json.Unmarshal([]byte(v), &caddyConf)
+}
+
+func InitialCaddyConfig() CaddyConf {
+	var c CaddyConf
+	v := InitialCaddyConfigSrc()
+	// Asserting the absence of this error with tests
+	_ = json.Unmarshal([]byte(v), &c)
+	return c
 }
 
 func IsConfEmpty() bool {

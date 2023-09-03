@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/king8fisher/caddycfginjector/caddy"
 	"github.com/king8fisher/caddycfginjector/db"
 	pb "github.com/king8fisher/caddycfginjector/proto/caddycfginjector"
 	"log/slog"
@@ -21,6 +22,7 @@ type server struct {
 
 func (s *server) AddRoute(_ context.Context, in *pb.AddRouteRequest) (*pb.AddRouteReply, error) {
 	db.AddRoute(in.Route)
+	caddy.PatchCaddyCh <- db.ReadCaddyConf()
 	// return nil, status.Errorf(codes.Unimplemented, "method AddRoute not implemented")
 	return &pb.AddRouteReply{
 		Result:  pb.AddRouteReply_ok,
@@ -33,6 +35,10 @@ func main() {
 	flag.StringVar(&host, "host", "localhost", "Grpc server host. --host=\"\" to expose.")
 	var port int
 	flag.IntVar(&port, "port", 50051, "Grpc server port")
+	var caddyPort int
+	flag.IntVar(&caddyPort, "caddyPort", 2019, "Caddy port to poll and patch")
+	var init bool
+	flag.BoolVar(&init, "init", true, "Attempt to send initial conf to Caddy if returns empty")
 
 	help := false
 	flag.BoolVar(&help, "h", false, "Show help")
@@ -49,6 +55,10 @@ func main() {
 		slog.Error("failed to listen", "err", err)
 		os.Exit(1)
 	}
+
+	go caddy.PollCaddy(context.Background(), caddyPort, init)
+	go caddy.PatchCaddy(context.Background(), caddyPort)
+
 	s := grpc.NewServer()
 	pb.RegisterCaddyCfgInjectorServer(s, &server{})
 	slog.Info("caddycfginjector listens", "addr", lis.Addr())

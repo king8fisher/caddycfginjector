@@ -1,0 +1,1 @@
+protoc --go_out=./caddycfginjector --go_opt=paths=source_relative --go-grpc_out=./caddycfginjector --go-grpc_opt=paths=source_relative ./caddycfginjector.proto

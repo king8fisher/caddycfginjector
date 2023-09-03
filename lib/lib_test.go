@@ -1,4 +1,4 @@
-package caddycfginjector
+package lib
 
 import (
 	"context"

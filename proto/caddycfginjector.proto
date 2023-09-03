@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+option go_package = "github.com/king8fisher/caddycfginjector/proto/caddycfginjector";
+
+package caddycfginjector;
+
+service CaddyCfgInjector {
+  rpc AddRoute (AddRouteRequest) returns (AddRouteReply) {}
+}
+
+message AddRouteRequest {
+  Route route = 1;
+}
+
+message Route {
+  string id = 1;
+  repeated Handle handles = 2;
+  repeated Match matches = 3;
+}
+
+message Handle {
+  enum Handler {
+    ReverseProxy = 0;
+  }
+  Handler handler = 1;
+  Transport transport = 2;
+  repeated Upstream upstreams = 3;
+}
+
+message Transport {
+  enum Protocol {
+    HTTP = 0;
+    FastCGI = 1;
+  }
+  // https://caddyserver.com/docs/json/apps/http/servers/routes/handle/reverse_proxy/transport/
+  Protocol protocol = 1;
+}
+
+message Upstream {
+  Dial dial = 1;
+}
+
+message Dial {
+  string host = 1;
+  uint32 port = 2;
+}
+
+message Match {
+  repeated string hosts = 1;
+  repeated string paths = 2;
+}
+
+message AddRouteReply {
+  enum ReplyResult {
+    ok = 0;
+    error = 1;
+  }
+  ReplyResult result = 1;
+  string message = 2;
+}
+

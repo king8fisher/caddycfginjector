@@ -13,24 +13,34 @@ import (
 var caddyConf = &CaddyConf{}
 var caddyConfMutex sync.Mutex
 
-func ReadCaddyConf() string {
+// ReadCaddyConf sends string representation of
+// a config unless empty.
+func ReadCaddyConf() (string, error) {
 	caddyConfMutex.Lock()
 	defer caddyConfMutex.Unlock()
-	b, _ := json.Marshal(caddyConf)
-	return string(b)
+	if isCaddyConfEmptyNonBlocking() {
+		return "", fmt.Errorf("empty config")
+	}
+	b, err := json.Marshal(caddyConf)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
-func SetCaddyConf(conf []byte) {
+func SetCaddyConf(conf []byte) error {
 	caddyConfMutex.Lock()
 	defer caddyConfMutex.Unlock()
 	var c CaddyConf
 	err := json.Unmarshal(conf, &c)
 	if err != nil {
-		slog.Warn("unable to fit conf into internal json", "err", err, "conf", conf)
+		return fmt.Errorf("unable to fit conf: %v", err)
 	} else {
+		if isConfEmpty(c) {
+			return fmt.Errorf("unable to set internal conf: seems empty")
+		}
 		caddyConf = &c
-		m, _ := json.Marshal(c)
-		slog.Info("internal conf changed", "conf", m)
+		return nil
 	}
 }
 
@@ -91,7 +101,17 @@ func InitialCaddyConfig() CaddyConf {
 	return c
 }
 
-func IsConfEmpty() bool {
+func isConfEmpty(conf CaddyConf) bool {
+	if conf.Apps.Http.Servers.Myserver.AutomaticHttps.Skip == nil {
+		return true
+	}
+	if conf.Apps.Http.Servers.Myserver.Listen == nil {
+		return true
+	}
+	return false
+}
+
+func isCaddyConfEmptyNonBlocking() bool {
 	if caddyConf.Apps.Http.Servers.Myserver.AutomaticHttps.Skip == nil {
 		return true
 	}
@@ -107,7 +127,7 @@ func patchRoute(r Route) {
 	defer caddyConfMutex.Unlock()
 
 	// Guard empty configuration
-	if IsConfEmpty() {
+	if isCaddyConfEmptyNonBlocking() {
 		return
 	}
 

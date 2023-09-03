@@ -64,9 +64,13 @@ func PollCaddy(ctx context.Context, port int, init bool) {
 						slog.Error("caddy initial conf empty, skipping incoming routes")
 					}
 				} else {
-					slog.Info("caddy initial conf received", "conf", conf)
-					db.SetCaddyConf([]byte(conf))
-					stop = true
+					err := db.SetCaddyConf([]byte(conf))
+					if err != nil {
+						slog.Error("caddy initial conf rejected", "conf", conf, "err", err)
+					} else {
+						slog.Info("caddy initial conf received", "conf", conf)
+						stop = true
+					}
 				}
 			}
 			if stop {

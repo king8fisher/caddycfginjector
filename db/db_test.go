@@ -12,7 +12,7 @@ import (
 func Test(t *testing.T) {
 	a := assert.New(t)
 	a.Equal(*caddyConf, CaddyConf{})
-	a.Equal(true, IsConfEmpty(), "initially empty")
+	a.Equal(true, isCaddyConfEmptyNonBlocking(), "initially empty")
 
 	t.Run("testPatchRoute", testPatchRoute)
 	t.Run("testResetConf", testResetConf)
@@ -59,7 +59,7 @@ func testPatchRoute(t *testing.T) {
 	a.Equal(*caddyConf, CaddyConf{}, "adding to empty conf produces empty conf")
 	resetConfToMinimumNonEmptyConf()
 	a.NotEqual(*caddyConf, CaddyConf{}, "resetConfToMinimumNonEmptyConf() shouldn't result in an empty config")
-	a.Equal(false, IsConfEmpty())
+	a.Equal(false, isCaddyConfEmptyNonBlocking())
 	patchRoute(route0)
 	a.NotEqual(caddyConf, CaddyConf{}, "adding to non-empty conf produces non-empty conf")
 	a.NotNil(caddyConf.Apps.Http.Servers.Myserver.Routes, "after adding a route can't be nil")

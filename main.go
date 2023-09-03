@@ -22,12 +22,20 @@ type server struct {
 
 func (s *server) AddRoute(_ context.Context, in *pb.AddRouteRequest) (*pb.AddRouteReply, error) {
 	db.AddRoute(in.Route)
-	caddy.PatchCaddyCh <- db.ReadCaddyConf()
-	// return nil, status.Errorf(codes.Unimplemented, "method AddRoute not implemented")
-	return &pb.AddRouteReply{
-		Result:  pb.AddRouteReply_ok,
-		Message: "ok",
-	}, nil
+	cf, err := db.ReadCaddyConf()
+	if err == nil {
+		caddy.PatchCaddyCh <- cf
+		return &pb.AddRouteReply{
+			Result:  pb.AddRouteReply_ok,
+			Message: "ok",
+		}, nil
+	} else {
+		return &pb.AddRouteReply{
+			Result:  pb.AddRouteReply_error,
+			Message: err.Error(),
+		}, nil
+		// return nil, status.Errorf(codes.Unimplemented, "method AddRoute not implemented")
+	}
 }
 
 func main() {

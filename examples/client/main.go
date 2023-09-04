@@ -42,6 +42,7 @@ func main() {
 			},
 		},
 	})
-	t, _ := context.WithTimeout(context.Background(), time.Second*5)
+	t, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
 	lib.Periodically(t, time.Second*2, fn)
 }

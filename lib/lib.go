@@ -42,10 +42,11 @@ func SetLogger(l *slog.Logger) {
 //
 // Logging will be sent to a slog.Default() unless changed by SetLogger.
 func Fn(dialTarget string, route *pb.Route) func(ctx context.Context) {
+	var prevAddRouteReply int32 = -1
 	fn := func(ctx context.Context) {
 		conn, err := grpc.DialContext(ctx, dialTarget, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
-			slog.Error("did not connect", "err", err)
+			slog.Error("[caddycfginjector] did not connect", "err", err)
 			return
 		}
 
@@ -59,15 +60,15 @@ func Fn(dialTarget string, route *pb.Route) func(ctx context.Context) {
 
 		r, err := c.AddRoute(ctx, &pb.AddRouteRequest{Route: route})
 		if err != nil {
-			slog.Error("could not add route", "err", err)
+			slog.Error("[caddycfginjector] could not add route", "err", err)
 			return
 		}
-		if r.GetResult() == pb.AddRouteReply_ok {
-			slog.Info("answer", "message", r.GetMessage())
-		} else if r.GetResult() == pb.AddRouteReply_error {
-			slog.Error("answer", "message", r.GetMessage())
-			return
+		//if r.GetResult() == pb.AddRouteReply_ok {
+		//} else if r.GetResult() == pb.AddRouteReply_error {
+		if prevAddRouteReply != int32(r.GetResult()) {
+			slog.Info("[caddycfginjector] reply", "message", r.GetMessage())
 		}
+		prevAddRouteReply = int32(r.GetResult())
 	}
 	return fn
 }

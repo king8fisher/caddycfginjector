@@ -178,17 +178,6 @@ type Route struct {
 	Matches []Match  `json:"match"`
 }
 
-func handlerToString(handler pb.Handle_Handler) string {
-	switch handler {
-	case pb.Handle_ReverseProxy:
-		return "reverse_proxy"
-	default:
-		slog.Error("unknown handler", "handler", handler.String())
-		os.Exit(1)
-	}
-	return ""
-}
-
 func transportProtocolToString(protocol pb.Transport_Protocol) string {
 	switch protocol {
 	case pb.Transport_HTTP:
@@ -205,19 +194,24 @@ func transportProtocolToString(protocol pb.Transport_Protocol) string {
 func AddRoute(r *pb.Route) {
 	var handles []Handle
 	for _, h := range r.Handles {
-		var upstreams []Upstream
-		for _, u := range h.Upstreams {
-			upstreams = append(
-				upstreams,
-				Upstream{Dial: fmt.Sprintf("%v:%v", u.Dial.Host, u.Dial.Port)})
+		switch h := h.Handler.(type) {
+		case *pb.Handle_ReverseProxy:
+			var upstreams []Upstream
+			for _, u := range h.ReverseProxy.Upstreams {
+				upstreams = append(
+					upstreams,
+					Upstream{Dial: fmt.Sprintf("%v:%v", u.Dial.Host, u.Dial.Port)})
+			}
+			handles = append(handles, Handle{
+				Handler: "reverse_proxy",
+				Transport: Transport{
+					Protocol: transportProtocolToString(h.ReverseProxy.Transport.Protocol),
+				},
+				Upstreams: upstreams,
+			})
+		default:
+			slog.Warn("unknown handler type", "handler", h)
 		}
-		handles = append(handles, Handle{
-			Handler: handlerToString(h.Handler),
-			Transport: Transport{
-				Protocol: transportProtocolToString(h.Transport.Protocol),
-			},
-			Upstreams: upstreams,
-		})
 	}
 	var matches []Match
 	for _, m := range r.Matches {

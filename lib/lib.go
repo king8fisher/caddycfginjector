@@ -1,98 +1,28 @@
 package lib
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"github.com/king8fisher/caddycfginjector/internal"
-	"io"
+	pb "github.com/king8fisher/caddycfginjector/proto/caddycfginjector"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"log/slog"
-	"net/http"
-	"strings"
 	"time"
-
-	sl "github.com/srfrog/slices"
-	"github.com/valyala/fasttemplate"
 )
 
-var jsonTemplate = `
-{
-  "apps": {
-    "http": {
-      "servers": {
-        {{server_key}}: {
-          "automatic_https": {
-            "skip": []
-          },
-          "listen": [
-            ":443"
-          ],
-          "routes": [
-            {
-              "@id": {{route_id}},
-              "handle": [
-                {
-                  "handler": "reverse_proxy",
-                  "transport": {
-                    "protocol": "http"
-                  },
-                  "upstreams": [
-                    {
-                      "dial": {{host_port}}
-                    }
-                  ]
-                }
-              ],
-              "match": [
-                {
-                  "host": [
-                    {{matchHosts}}
-                  ],
-                  "path": [
-                    {{matchPath}}
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      }
-    }
-  }
-}
-`
-
-// Config returns a json string with conf for Caddy.
+// Periodically is a helper that calls fn quickly and then repeats the call after
+// refreshDelay duration until ctx requests a cancellation.
 //
-//   - serverKey - usually "myserver"
-//   - routeId - unique ID within caddy conf, ex. one of the domain names
-//   - appHost / appPort - application host and port to proxy this route to
-//   - matchHosts - list of matching hosts.
-//   - matchPath - usually "/*"
-func Config(serverKey string, routeId string, appHost string, appPort int, matchHosts []string, matchPath string) string {
-	t := fasttemplate.New(jsonTemplate, "{{", "}}")
-	s := t.ExecuteString(map[string]interface{}{
-		"server_key": util.EncodeJSONString(serverKey),
-		"route_id":   util.EncodeJSONString(routeId),
-		"host_port":  util.EncodeJSONString(fmt.Sprintf("%v:%d", appHost, appPort)),
-		"matchHosts": strings.Join(sl.Map(func(s string) string { return util.EncodeJSONString(s) }, matchHosts), ", "),
-		"matchPath":  util.EncodeJSONString(matchPath),
-	})
-	return s
-}
-
-// Periodically is a helper that calls a function after refreshDelay duration and then repeats until ctx requests a cancellation.
-func Periodically(ctx context.Context, refreshDelay time.Duration, fn func()) {
-	ticker := time.NewTicker(refreshDelay)
-	defer ticker.Stop()
-
-	fn()
+// Provided ctx is also passed down to the fn.
+func Periodically(ctx context.Context, refreshDelay time.Duration, fn func(ctx context.Context)) {
+	t := time.NewTimer(time.Millisecond)
+	defer t.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			fn()
+		case <-t.C:
+			fn(ctx)
+			t.Reset(refreshDelay)
 		}
 	}
 }
@@ -105,33 +35,38 @@ func SetLogger(l *slog.Logger) {
 	logger = l
 }
 
-// Fn returns a function that executes conf against caddy's loadURL (usually "http://localhost:2019/load").
+// Fn returns a function that attempts to add a route to caddycfginjector gRPC server via dialTarget.
 //
 // Most likely this function will have to be called at least once, and then repeatedly using Periodically so that Caddy will
-// have a chance to pick up in case it (re)starts later.
+// have a chance to register the route in case of a later start.
 //
 // Logging will be sent to a slog.Default() unless changed by SetLogger.
-func Fn(loadURL string, config string) func() {
-	fn := func() {
-		request, err := http.NewRequest("POST", loadURL, bytes.NewBufferString(config))
+func Fn(dialTarget string, route *pb.Route) func(ctx context.Context) {
+	fn := func(ctx context.Context) {
+		conn, err := grpc.DialContext(ctx, dialTarget, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
-			logger.Error("creating caddy request", "err", err)
+			slog.Error("did not connect", "err", err)
 			return
 		}
-		request.Header.Set("Content-Type", "application/json; charset=UTF-8")
-		client := &http.Client{}
-		response, err := client.Do(request)
-		if err != nil {
-			logger.Error("reading response", "err", err)
-			return
-		}
-		defer func(Body io.ReadCloser) {
-			_ = Body.Close()
-		}(response.Body)
 
-		body, _ := io.ReadAll(response.Body)
-		if response.StatusCode != 200 {
-			logger.Error("response !=200", "code", response.StatusCode, "body", string(body))
+		defer func(conn *grpc.ClientConn) {
+			_ = conn.Close()
+		}(conn)
+		c := pb.NewCaddyCfgInjectorClient(conn)
+
+		ctx, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+
+		r, err := c.AddRoute(ctx, &pb.AddRouteRequest{Route: route})
+		if err != nil {
+			slog.Error("could not add route", "err", err)
+			return
+		}
+		if r.GetResult() == pb.AddRouteReply_ok {
+			slog.Info("answer", "message", r.GetMessage())
+		} else if r.GetResult() == pb.AddRouteReply_error {
+			slog.Error("answer", "message", r.GetMessage())
+			return
 		}
 	}
 	return fn

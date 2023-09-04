@@ -19,6 +19,7 @@ var PatchCaddyCh = make(chan string, 1)
 // PatchCaddy will run in background and wait for
 // new conf sent to PatchCaddyCh.
 func PatchCaddy(ctx context.Context, port int) {
+	prev := ""
 	for {
 		select {
 		case <-ctx.Done():
@@ -28,7 +29,11 @@ func PatchCaddy(ctx context.Context, port int) {
 			if err != nil {
 				slog.Error("patch caddy config", "err", err)
 			} else {
-				slog.Info("patch caddy success", "conf", c)
+				if prev != c {
+					// Skip notifying for the same conf
+					slog.Info("patch caddy success", "conf", c)
+					prev = c
+				}
 			}
 		}
 	}

@@ -19,12 +19,15 @@ message Route {
 }
 
 message Handle {
-  enum Handler {
-    ReverseProxy = 0;
+  oneof handler {
+    // https://caddyserver.com/docs/json/apps/http/servers/routes/handle/reverse_proxy/
+    ReverseProxy reverseProxy = 1;
   }
-  Handler handler = 1;
-  Transport transport = 2;
-  repeated Upstream upstreams = 3;
+}
+
+message ReverseProxy {
+  Transport transport = 1;
+  repeated Upstream upstreams = 2;
 }
 
 message Transport {
@@ -32,6 +35,7 @@ message Transport {
     HTTP = 0;
     FastCGI = 1;
   }
+  // Protocol for transport: Transport_*
   // https://caddyserver.com/docs/json/apps/http/servers/routes/handle/reverse_proxy/transport/
   Protocol protocol = 1;
 }

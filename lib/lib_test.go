@@ -1,87 +1,40 @@
 package lib
 
 import (
-	"context"
 	"fmt"
-	"time"
+	pb "github.com/king8fisher/caddycfginjector/proto/caddycfginjector"
 )
 
 func ExampleConfig() {
-	serverKey := "myserver"
-	routeId := "example.com"
-	s := Config(
-		serverKey,
-		routeId,
-		"127.0.0.1",
-		8080,
-		[]string{"example.com", "www.example.com"},
-		"/*",
-	)
-	fn := Fn("http://localhost:2019/load", s)
-	fn()
-	fmt.Printf("%v\n", s)
+	s := &pb.Route{
+		Id: "example.com",
+		Handles: []*pb.Handle{
+			{
+				Handler: &pb.Handle_ReverseProxy{
+					ReverseProxy: &pb.ReverseProxy{
+						Transport: &pb.Transport{
+							Protocol: pb.Transport_HTTP,
+						},
+						Upstreams: []*pb.Upstream{
+							{
+								Dial: &pb.Dial{
+									Host: "localhost",
+									Port: uint32(8080),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Matches: []*pb.Match{
+			{
+				Hosts: []string{"example.com", "beta.example.com"},
+				Paths: []string{"/*"},
+			},
+		},
+	}
+	fmt.Printf("%v\n", s.String())
 	// Output:
-	// {
-	//   "apps": {
-	//     "http": {
-	//       "servers": {
-	//         "myserver": {
-	//           "automatic_https": {
-	//             "skip": []
-	//           },
-	//           "listen": [
-	//             ":443"
-	//           ],
-	//           "routes": [
-	//             {
-	//               "@id": "example.com",
-	//               "handle": [
-	//                 {
-	//                   "handler": "reverse_proxy",
-	//                   "transport": {
-	//                     "protocol": "http"
-	//                   },
-	//                   "upstreams": [
-	//                     {
-	//                       "dial": "127.0.0.1:8080"
-	//                     }
-	//                   ]
-	//                 }
-	//               ],
-	//               "match": [
-	//                 {
-	//                   "host": [
-	//                     "example.com", "www.example.com"
-	//                   ],
-	//                   "path": [
-	//                     "/*"
-	//                   ]
-	//                 }
-	//               ]
-	//             }
-	//           ]
-	//         }
-	//       }
-	//     }
-	//   }
-	// }
-}
-
-func ExampleFn() {
-	serverKey := "myserver"
-	routeId := "example.com"
-	s := Config(
-		serverKey,
-		routeId,
-		"127.0.0.1",
-		8080,
-		[]string{"example.com", "www.example.com"},
-		"/*",
-	)
-	// "http://localhost:2019/load"
-	fn := Fn("http://localhost:2019/fake_caddy_load_uri", s)
-	fn()
-	t, _ := context.WithTimeout(context.Background(), time.Second*3)
-	Periodically(t, time.Second*1, fn)
-	// Output:
+	// id:"example.com" handles:{reverseProxy:{transport:{} upstreams:{dial:{host:"localhost" port:8080}}}} matches:{hosts:"example.com" hosts:"beta.example.com" paths:"/*"}
 }

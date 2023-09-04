@@ -150,7 +150,11 @@ func transportProtocolToString(protocol pb.Transport_Protocol) string {
 	return ""
 }
 
-func AddRoute(r *pb.Route) {
+func AddRoute(r *pb.Route) error {
+	err := validateRoute(r)
+	if err != nil {
+		return err
+	}
 	var handles []Handle
 	for _, h := range r.Handles {
 		switch h := h.Handler.(type) {
@@ -185,4 +189,15 @@ func AddRoute(r *pb.Route) {
 		Matches: matches,
 	}
 	patchRoute(a)
+	return nil
+}
+
+func validateRoute(r *pb.Route) error {
+	if r.Id == "" {
+		return fmt.Errorf("id cannot be empty")
+	}
+	if len(r.Handles) == 0 {
+		return fmt.Errorf("handles should contain at least one element")
+	}
+	return nil
 }

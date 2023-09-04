@@ -16,6 +16,7 @@ func Test(t *testing.T) {
 
 	t.Run("testPatchRoute", testPatchRoute)
 	t.Run("testResetConf", testResetConf)
+	t.Run("testAddInvalidRoute", testAddInvalidRoute)
 	t.Run("testAddRouteRace", testAddRouteRace)
 	t.Run("testNotEmpty", testNotEmpty)
 	t.Run("testResetConf_again", testResetConf)
@@ -82,6 +83,17 @@ func testPatchRoute(t *testing.T) {
 	//fmt.Println(string(r))
 }
 
+func testAddInvalidRoute(t *testing.T) {
+	a := assert.New(t)
+	resetConfToMinimumNonEmptyConf()
+	err := AddRoute(&pb.Route{
+		Id:      "",
+		Handles: nil,
+		Matches: nil,
+	})
+	a.NotNil(err, "should return error")
+}
+
 func testAddRouteRace(t *testing.T) {
 	a := assert.New(t)
 	resetConfToMinimumNonEmptyConf()
@@ -89,11 +101,34 @@ func testAddRouteRace(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(idx int) {
-			AddRoute(&pb.Route{
-				Id:      strconv.Itoa(idx),
-				Handles: nil,
-				Matches: nil,
+			err := AddRoute(&pb.Route{
+				Id: strconv.Itoa(idx),
+				Handles: []*pb.Handle{
+					{
+						Handler: &pb.Handle_ReverseProxy{
+							ReverseProxy: &pb.ReverseProxy{
+								Transport: &pb.Transport{
+									Protocol: pb.Transport_HTTP,
+								},
+								Upstreams: []*pb.Upstream{
+									{
+										Dial: &pb.Dial{
+											Host: "localhost",
+											Port: uint32(8080),
+										},
+									},
+								},
+							},
+						}},
+				},
+				Matches: []*pb.Match{
+					{
+						Hosts: []string{"example.com", "beta.example.com"},
+						Paths: []string{"/*"},
+					},
+				},
 			})
+			a.Nil(err, "should be no error")
 			wg.Done()
 		}(i)
 	}

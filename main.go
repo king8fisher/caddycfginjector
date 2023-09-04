@@ -21,7 +21,14 @@ type server struct {
 }
 
 func (s *server) AddRoute(_ context.Context, in *pb.AddRouteRequest) (*pb.AddRouteReply, error) {
-	db.AddRoute(in.Route)
+	err := db.AddRoute(in.Route)
+	if err != nil {
+		return &pb.AddRouteReply{
+			Result:  pb.AddRouteReply_error,
+			Message: err.Error(),
+		}, nil
+	}
+
 	cf, err := db.ReadCaddyConf()
 	if err == nil {
 		caddy.PatchCaddyCh <- cf

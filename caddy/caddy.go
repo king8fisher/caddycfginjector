@@ -111,5 +111,8 @@ func postCaddyConfig(port int, cfg string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if loadConfig.StatusCode != 200 {
+		return "", fmt.Errorf("caddy status code %d, body: %v, cfg: %v", loadConfig.StatusCode, string(b), cfg)
+	}
 	return string(b), nil
 }

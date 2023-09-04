@@ -13,6 +13,8 @@ import (
 // refreshDelay duration until ctx requests a cancellation.
 //
 // Provided ctx is also passed down to the fn.
+//
+//	go lib.Periodically(t, time.Second*2, fn)
 func Periodically(ctx context.Context, refreshDelay time.Duration, fn func(ctx context.Context)) {
 	t := time.NewTimer(time.Millisecond)
 	defer t.Stop()
